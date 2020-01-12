@@ -3,30 +3,37 @@ project (lavaTool VERSION 2.0.0 LANGUAGES CXX)
 set (LLVM_LINK_COMPONENTS support)
 
 set (CLANG_LIBS
+    clangFrontend # depends on clangSerialization, clangParse, clangSema, LLVMOption, clangDriver, LLVMBitReader, clangEdit
+    clangASTMatchers # depends on clangAST
     clangAST
-    clangASTMatchers
-    clangBasic
-    clangFrontend
-    clangLex
+    clangAnalysis
+    clangEdit # depends on clangLex
+    clangLex # depends on clangBasic
+    clangParse # depends clangBasic, LLVMMCParser
+    clangBasic # depends on LLVMC
+    clangDriver
+    clangRewrite
+    clangSema
+    clangSerialization
     clangToolingCore
     clangTooling
  )
 
-set (LLVM_LIBS
-    LLVMSupport
-)
-
-if(DEFINED ENV{LLVM_DIR})
+#if(DEFINED ENV{LLVM_DIR})
     find_package(LLVM CONFIG)
-endif()
-
-set (LLVM_CLANG_LINK_LIBRARIES
-    ${CLANG_LIBS}
-    ${LLVM_LIBS}
-)
+#endif()
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+
+explicit_map_components_to_libraries(LLVM_LIBS Support Option BitReader MC MCParser)
+
+set (LLVM_CLANG_LINK_LIBRARIES
+    -Wl,--start-group
+    ${CLANG_LIBS}
+    ${LLVM_LIBS}
+    -Wl,--end-group
+)
 
 if(LLVM_BUILD_MAIN_SRC_DIR)
     include_directories(${LLVM_BUILD_MAIN_SRC_DIR}/tools/clang/include)

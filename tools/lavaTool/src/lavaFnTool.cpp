@@ -155,7 +155,11 @@ class CallPrinter : public MatchFinder::MatchCallback {
             std::string fun_name = get_containing_function_name(Result, *call);
             outfile << "   containing_function: " << fun_name << "\n";
 
-            QualType rt = call->getCallReturnType();//(Result.Context);
+#if LLVM_VERSION_MAJOR > 3 || LLVM_VERSION_MINOR >= 7
+            QualType rt = call->getCallReturnType(*Result.Context);
+#else
+            QualType rt = call->getCallReturnType();
+#endif
             spit_type( "   ret_type: ", rt);
             outfile << "   args: \n";
             for (auto it = call->arg_begin(); it != call->arg_end(); ++it) {

@@ -1,0 +1,140 @@
+language: cpp
+
+os: linux
+dist: xenial
+
+git:
+  submodules: false
+
+services:
+  - postgresql
+
+addons:
+  apt:
+    sources:
+      # up to ubuntu xenial, we can use the ppa name
+      - sourceline: 'ppa:phulin/panda'
+      # the ppa doesn't support later ubuntu releases -- specify url instead
+      #- sourceline: 'deb http://ppa.launchpad.net/phulin/panda/ubuntu xenial main'
+    packages:
+      # Build dependencies
+      - libaio-dev
+      - libattr1-dev
+      - libbrlapi-dev
+      - libcap-dev
+      - libcap-ng-dev
+      - libgcc-4.8-dev
+      - libgnutls-dev
+      - libgtk-3-dev
+      - libiscsi-dev
+      - liblttng-ust-dev
+      - libncurses5-dev
+      - libnfs-dev
+      - libnss3-dev
+      - libpixman-1-dev
+      - libpng12-dev
+      - librados-dev
+      - libsdl1.2-dev
+      - libseccomp-dev
+      - libspice-protocol-dev
+      - libspice-server-dev
+      - libssh-dev
+      - liburcu-dev
+      - libusb-1.0-0-dev
+      - libvte-2.91-dev
+      - sparse
+      - uuid-dev
+      # PANDA stuff
+      - bison
+      - flex
+      - linux-libc-dev
+      - libcapstone-dev
+      - libdwarf-dev
+      - libelf-dev
+      - libprotobuf-c0-dev
+      - libprotoc-dev
+      - libwireshark-dev
+      - libwiretap-dev
+      - llvm-3.3-dev
+      - clang-3.3
+      - protobuf-c-compiler
+      - protobuf-compiler
+      - python-pip
+      - python-protobuf
+      - python-pycparser
+
+      - protobuf-compiler
+      - protobuf-c-compiler
+      - libprotobuf-c0-dev
+      - libprotoc-dev
+      - python-protobuf
+      - libelf-dev
+      - libcapstone-dev
+      - libdwarf-dev
+      - python-pycparser
+      - python-colorama
+      - llvm-3.3
+      - clang-3.3
+      - libc++-dev
+      - libwiretap-dev
+      - libwireshark-dev odb
+      - odb
+      - libodb-dev
+      - libodb-pgsql-dev
+
+      - build-essential
+      - cmake
+      - libjsoncpp-dev
+      - postgresql
+      - jq
+      - python-psycopg2
+      - python-sqlalchemy
+      - socat
+      - libpq-dev
+      - docker.io
+      - bc
+      - python-pip
+      - python-pexpect
+      - python-psutil
+      - python-lockfile
+      - genisoimage
+      - inotify-tools
+      - libprotobuf-c0-dev
+      - libodb-pgsql-2.4
+      # panda requires libfdt>=1.4.4, but xenial has 1.4.0
+      #- libfdt-dev
+
+      # fbi
+      - llvm-3.9-dev
+      - libclang-3.9-dev
+
+# a hack to force panda to show compile commands
+#env:
+#  global:
+#    - "PANDA_NPROC=2 V=1"
+
+# TODO: panda taint2 compiling fails with ccache
+#cache: ccache
+
+before_install:
+  - travis_retry sudo apt-get build-dep qemu
+  # remove default installed clang, because panda tries to use it instead of 3.3
+  - sudo rm -rf /usr/local/clang-7.0.0 /usr/local/llvm-7.0.0
+  - clang --version
+  # full clone is slow, and lava uses outdated panda
+  - travis_retry git submodule update --init --depth 2000
+  - (cd panda/src && travis_retry git submodule update --init --depth 400 dtc)
+  # build only i386-softmmu target
+  - sed 's/--target-list=.* /--target-list=i386-softmmu /' -i panda/src/build.sh
+  - grep target-list panda/src/build.sh
+  # skip postgres setup
+  - 'echo *:*:*:postgres:> "$HOME/.pgpass"'
+
+#  - cd panda
+#  - SCRIPT_URL=https://raw.githubusercontent.com/panda-re/panda/master/panda/scripts/install_ubuntu.sh;
+#    curl -sL $SCRIPT_URL | bash -
+install:
+  - python setup.py
+
+script:
+  - cd tests && ./test.sh toy

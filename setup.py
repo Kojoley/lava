@@ -19,7 +19,12 @@ from os.path import expandvars
 from colorama import Fore
 from colorama import Style
 
-from multiprocessing import cpu_count
+
+if hasattr(os, 'sched_getaffinity'):
+    def cpu_count():
+        return len(os.sched_getaffinity(0))
+else:
+    from multiprocessing import cpu_count
 
 
 def command_exited_nonzero(cmd):
@@ -152,7 +157,7 @@ def user_in_docker(username):
                                       .format(username))
 
 
-DOCKER_MAP_DIRS = [LAVA_DIR, os.environ['HOME']]
+DOCKER_MAP_DIRS = [LAVA_DIR]
 DOCKER_MAP_FILES = ['/etc/passwd', '/etc/group',
                     '/etc/shadow', '/etc/gshadow']
 map_dirs_dedup = []
@@ -298,10 +303,12 @@ def main():
 
     run_docker(['cmake', '-B{}'.format(join(LAVA_DIR, 'tools/build')),
                 '-H{}'.format(join(LAVA_DIR, 'tools')),
+                '-DCMAKE_BUILD_TYPE=Release',
+                '-DCMAKE_VERBOSE_MAKEFILE=ON',
                 '-DCMAKE_INSTALL_PREFIX={}'.format(join(LAVA_DIR,
                                                         'tools/install'))])
-    run_docker(['make','--no-print-directory','-j4', 'install', '-C',
-                join(LAVA_DIR, 'tools/build/lavaTool')])
+    run_docker(['make','--no-print-directory', '-j', str(cpu_count()), 'install', '-C',
+                join(LAVA_DIR, 'tools/build/lavaTool'), 'VERBOSE=1'])
 
     # ensure /etc/apt/sources.list has all of the deb-src lines uncommented
     patch_sources = join(LAVA_DIR, "scripts/patch-sources.py")
@@ -371,8 +378,18 @@ def main():
     progress("Making each component of lava, fbi and lavaTool")
     progress("Compiling fbi")
 
-    os.chdir(join(LAVA_DIR, "tools/build"))
-    run("make --no-print-directory -j4 -C fbi install")
+    try:
+        os.makedirs(join(LAVA_DIR, 'tools/build-fbi'))
+    except OSError:
+        pass
+    os.chdir(join(LAVA_DIR, "tools/build-fbi"))
+    run(['cmake', '-B{}'.format(join(LAVA_DIR, 'tools/build-fbi')),
+                '-H{}'.format(join(LAVA_DIR, 'tools')),
+                '-DCMAKE_BUILD_TYPE=Release',
+                '-DCMAKE_VERBOSE_MAKEFILE=ON',
+                '-DCMAKE_INSTALL_PREFIX={}'.format(join(LAVA_DIR,
+                                                        'tools/install'))])
+    run("make --no-print-directory -j%d -C fbi install" % cpu_count())
     os.chdir(LAVA_DIR)
 
     return 0
